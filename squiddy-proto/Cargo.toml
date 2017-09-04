@@ -1,0 +1,9 @@
+[package]
+name = "squiddy-proto"
+version = "0.1.0"
+authors = ["Alex Pecsi <alex.pecsi@gmail.com>"]
+
+[dependencies]
+bytes = "0.4.*"
+tokio-io = "0.1.*"
+tokio-proto = "0.1.*"
