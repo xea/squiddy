@@ -1,5 +1,6 @@
 pub type ServiceId = u16;
 pub type ProtocolVersion = (u8, u8);
+pub type ClientName = String;
 
 #[derive(Debug, PartialEq)]
 pub enum Message {
@@ -10,5 +11,5 @@ pub enum Message {
 
     /// Greeting response the client must send to the server, in reply to `ServerHello` messages
     /// if the client.
-    ClientHello
+    ClientHello(ClientName)
 }
