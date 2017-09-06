@@ -8,21 +8,29 @@ use bytes::{BytesMut, BufMut};
 use tokio_io::codec::{Encoder, Decoder};
 
 #[test]
-fn test_bytes() {
-    let mut buffer = BytesMut::with_capacity(10);
+fn bytes_test() {
+    let mut buffer = BytesMut::with_capacity(32);
 
-    let remaining = buffer.remaining_mut();
+    assert_eq!(0, buffer.len());
+    assert_eq!(32, buffer.remaining_mut());
 
-    assert!(10 <= remaining);
+    buffer.put_u8(13);
 
-    buffer.put_u8(12);
+    assert_eq!(1, buffer.len());
+    assert_eq!(31, buffer.remaining_mut());
 
-    assert_eq!(remaining - 1, buffer.remaining_mut());
+    buffer.put_u8(13);
 
-    let f = buffer.freeze();
+    assert_eq!(2, buffer.len());
+    assert_eq!(30, buffer.remaining_mut());
 
+    let a: BytesMut = buffer.take();
 
-    let b = BytesMut::from(f);
+    assert_eq!(2, a.len());
+    assert_eq!(0, a.remaining_mut());
+
+    assert_eq!(0, buffer.len());
+    assert_eq!(30, buffer.remaining_mut());
 }
 
 #[test]
@@ -60,7 +68,9 @@ fn test_encoding_roundtrip_bidirectional(input_generator: fn() -> Message, outpu
     //assert!(false, format!("{:?}", buffer));
     //assert_eq!(0, buffer.remaining_mut());
 
-    let decoded_msg = decoder.decode(&mut buffer);
+    let mut read_buffer = buffer.take();
+
+    let decoded_msg = decoder.decode(&mut read_buffer);
 
     match decoded_msg {
         Ok(maybe_msg) => match maybe_msg {
