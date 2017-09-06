@@ -1,6 +1,6 @@
 use super::super::message::*;
 use super::*;
-use bytes::{Buf, BufMut, BytesMut, BigEndian, IntoBuf};
+use bytes::{Buf, BytesMut, BigEndian, IntoBuf};
 use tokio_io::codec::Decoder;
 
 use std::io::{ Error, ErrorKind, Result };
@@ -12,7 +12,7 @@ impl Decoder for SquiddyDecoder {
     type Error = Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Message>> {
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return Err(Error::new(ErrorKind::InvalidData, "Received empty message"))
         }
 
@@ -46,7 +46,7 @@ impl SquiddyDecoder {
 
     // TODO refactor return type to generate meaningful error messages instead of None
     fn decode_protocol_version(buf: &mut BytesMut) -> Option<ProtocolVersion> {
-        if buf.len() >= 1 {
+        if !buf.is_empty() {
             let mut version_buf = buf.split_to(2).into_buf();
 
             Some((version_buf.get_u8(), version_buf.get_u8()))
@@ -55,9 +55,8 @@ impl SquiddyDecoder {
         }
      }
 
-     // TODO refactor return type to generate meaningful error messages instead of None
      fn decode_client_name(buf: &mut BytesMut) -> Result<ClientName> {
-         if buf.len() > 0 {
+         if !buf.is_empty() {
             let name_len = buf.split_to(1).into_buf().get_u8() as usize;
 
             if name_len <= MAX_CLIENT_NAME_LENGTH as usize && buf.len() >= name_len {
@@ -68,7 +67,7 @@ impl SquiddyDecoder {
                 Err(Error::new(ErrorKind::InvalidData, format!("Client name length exceeds maximum value: {} MAX: {}", name_len, MAX_CLIENT_NAME_LENGTH)))
             }
         } else {
-            Err(Error::new(ErrorKind::InvalidData, "Empty buffer"))
+            Err(Error::new(ErrorKind::UnexpectedEof, "Empty buffer"))
         }
      }
 }
