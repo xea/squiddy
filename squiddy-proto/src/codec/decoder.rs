@@ -5,6 +5,8 @@ use tokio_io::codec::Decoder;
 
 use std::io::{ Error, ErrorKind, Result };
 
+/// `SquiddyDecoder` takes raw bytes sent by a remote peer and attempts to interpret them as
+/// meaningful protocol messages.
 pub struct SquiddyDecoder;
 
 impl Decoder for SquiddyDecoder {
@@ -24,10 +26,11 @@ impl Decoder for SquiddyDecoder {
             match OpCode::from(opcode) {
                 OpCode::ServerHello => match SquiddyDecoder::decode_protocol_version(buf) {
                     // Everything is alright, let's return the protocol version
-                    Some(version) => Ok(Some(Message::ServerHello(version))),
+                    Ok(version) => Ok(Some(Message::ServerHello(version))),
                     // Protocol version is not right, whole message is rejected
-                    None => Err(Error::from(ErrorKind::InvalidData))
+                    Err(error) => Err(error)
                 },
+
                 OpCode::ClientHello => match SquiddyDecoder::decode_client_name(buf) {
                     Ok(client_name) => Ok(Some(Message::ClientHello(client_name))),
                     Err(error) => Err(error)
@@ -44,14 +47,16 @@ impl Decoder for SquiddyDecoder {
 
 impl SquiddyDecoder {
 
-    // TODO refactor return type to generate meaningful error messages instead of None
-    fn decode_protocol_version(buf: &mut BytesMut) -> Option<ProtocolVersion> {
+    /// Attempts to decode the bytes in the buffer as a squiddy protocol version. The procotol
+    /// version should consist of two bytes, the first one being the major protocol version number
+    /// and the second one the minor protocol version number.
+    fn decode_protocol_version(buf: &mut BytesMut) -> Result<ProtocolVersion> {
         if !buf.is_empty() {
             let mut version_buf = buf.split_to(2).into_buf();
 
-            Some((version_buf.get_u8(), version_buf.get_u8()))
+            Ok((version_buf.get_u8(), version_buf.get_u8()))
         } else {
-            None
+            Err(Error::new(ErrorKind::UnexpectedEof, "Empty buffer"))
         }
      }
 

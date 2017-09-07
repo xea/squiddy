@@ -8,32 +8,6 @@ use bytes::{BytesMut, BufMut};
 use tokio_io::codec::{Encoder, Decoder};
 
 #[test]
-fn bytes_test() {
-    let mut buffer = BytesMut::with_capacity(32);
-
-    assert_eq!(0, buffer.len());
-    assert_eq!(32, buffer.remaining_mut());
-
-    buffer.put_u8(13);
-
-    assert_eq!(1, buffer.len());
-    assert_eq!(31, buffer.remaining_mut());
-
-    buffer.put_u8(13);
-
-    assert_eq!(2, buffer.len());
-    assert_eq!(30, buffer.remaining_mut());
-
-    let a: BytesMut = buffer.take();
-
-    assert_eq!(2, a.len());
-    assert_eq!(0, a.remaining_mut());
-
-    assert_eq!(0, buffer.len());
-    assert_eq!(30, buffer.remaining_mut());
-}
-
-#[test]
 fn server_hello_is_encoded_and_decoded() {
     test_encoding_roundtrip(|| Message::ServerHello((1, 3)));
 }
@@ -64,9 +38,6 @@ fn test_encoding_roundtrip_bidirectional(input_generator: fn() -> Message, outpu
     let mut buffer = BytesMut::with_capacity(64);
 
     let _ = encoder.encode(msg, &mut buffer);
-
-    //assert!(false, format!("{:?}", buffer));
-    //assert_eq!(0, buffer.remaining_mut());
 
     let mut read_buffer = buffer.take();
 

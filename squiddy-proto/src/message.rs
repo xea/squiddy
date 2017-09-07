@@ -10,6 +10,7 @@ pub enum Message {
     ServerHello(ProtocolVersion),
 
     /// Greeting response the client must send to the server, in reply to `ServerHello` messages
-    /// if the client.
+    /// if the client. Client name can be any arbitrary string but it's length is limited to 32
+    /// bytes.
     ClientHello(ClientName)
 }
