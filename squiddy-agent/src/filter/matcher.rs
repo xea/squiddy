@@ -21,7 +21,7 @@ pub struct AnyMatcher {
 impl Matcher for AnyMatcher {
 
     fn accept(&self, bytes: &mut BytesMut) -> bool {
-        for child in self.children.iter() {
+        for child in &self.children {
             if child.accept(bytes) {
                 return true;
             }
