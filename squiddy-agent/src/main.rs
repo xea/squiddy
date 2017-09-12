@@ -4,14 +4,15 @@ extern crate squiddy_proto;
 extern crate toml;
 #[macro_use]
 extern crate serde_derive;
+extern crate tokio_io;
 
-use bytes::{ BytesMut, BufMut };
 use config::AgentConfig;
 use filter::action::*;
 use filter::condition::*;
 use filter::matcher::*;
 use source::{Source, StdinSource};
-use target::TlsTarget;
+use squiddy_proto::message::Message;
+use target::{Target, TlsTarget};
 
 mod config;
 mod filter;
@@ -23,6 +24,11 @@ fn main() {
 
     let source = StdinSource;
 
+    if let Ok(mut target) = TlsTarget::connect() {
+        let message = Message::ClientHello(String::from(""));
+
+        target.accept(message);
+    }
 
 //    let config = AgentConfig::from_file(AgentConfig::DEFAULT_PATH);
     /*

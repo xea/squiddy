@@ -7,7 +7,6 @@ use std::io::{ Error, Result };
 
 pub struct SquiddyEncoder;
 
-
 impl Encoder for SquiddyEncoder {
     type Item = Message;
     type Error = Error;
