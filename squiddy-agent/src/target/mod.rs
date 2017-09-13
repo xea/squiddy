@@ -3,9 +3,11 @@ use squiddy_proto::message::Message;
 use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
 use self::memory::MemoryTarget;
+use self::nil::NilTarget;
 use self::tls::TlsTarget;
 
 pub mod memory;
+pub mod nil;
 pub mod tls;
 
 #[derive(Deserialize)]
@@ -30,6 +32,7 @@ impl TargetBuilder {
 
     pub fn build(target_type: TargetType) -> Result<Box<Target>, Error> {
         match target_type {
+            TargetType::Nil => Ok(Box::new(NilTarget)),
             TargetType::Memory => Ok(Box::new(MemoryTarget::default())),
             TargetType::Tls(server_address, server_name) => match TlsTarget::connect(server_address, &server_name) {
                 Ok(target) => Ok(Box::new(target)),
