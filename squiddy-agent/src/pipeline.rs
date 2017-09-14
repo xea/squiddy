@@ -1,10 +1,10 @@
 use super::config::AgentConfig;
 use super::source::Source;
 use super::target::Target;
-use super::filter::condition::Condition;
+use super::filter::condition::*;
 use super::source::SourceBuilder;
 use super::target::TargetBuilder;
-use squiddy_proto::message::Message;
+use super::state::State;
 use std::io::{Error, ErrorKind};
 
 pub struct Pipeline {
@@ -16,12 +16,14 @@ pub struct Pipeline {
 impl Pipeline {
 
     pub fn new(config: AgentConfig) -> Result<Pipeline, Error> {
+        let conditions = Pipeline::prepare_conditions(&config).unwrap();
+
         if let Ok(source) = SourceBuilder::build(config.source_type) {
             if let Ok(target) = TargetBuilder::build(config.target_type) {
                 Ok(Pipeline {
                     source: source,
                     target: target,
-                    conditions: vec![]
+                    conditions: conditions
                 })
             } else {
                 Err(Error::new(ErrorKind::Other, "No target definition found"))
@@ -31,44 +33,29 @@ impl Pipeline {
         }
     }
 
+    fn prepare_conditions(_: &AgentConfig) -> Result<Vec<Condition>, Error> {
+        Ok(vec![])
+    }
+
     pub fn run(&mut self) -> () {
+        let mut state = State::default();
+
         while self.source.has_more() {
             let item = self.source.next();
 
-            let message = Message::ClientHello(String::from(""));
-
-            self.target.accept(message);
-        }
-
-    /*
-    let mut conditions = vec![
-        Condition { matcher: Box::new(AnyMatcher { children:
-            vec![
-                Box::new(LengthMatcher { threshold: 13 })
-            ] }), actions: vec![ Box::new(IncrementCounter { name: String::from("asdf") }) ] }
-    ];
-
-    let mut bytes = BytesMut::with_capacity(1024);
-
-    for line in input_lines {
-        bytes.put_slice(line.as_bytes());
-
-        println!("bytes len: {}", bytes.len());
-
-        for condition in &mut conditions {
-            println!("Yay condition");
-            if condition.matcher.accept(&mut bytes) {
-                for action in &mut condition.actions {
-                    action.perform();
+            for condition in &mut self.conditions {
+                if condition.matcher.accept(&item) {
+                    for action in &mut condition.actions {
+                        if let Some(events) = action.perform() {
+                            for event in events {
+                                state.accept(event);
+                            }
+                        }
+                    }
                 }
-            } else {
-                println!("Nope ..|..");
             }
+
+            self.target.accept(&state);
         }
-
-        bytes.clear();
-    }
-    */
-
     }
 }

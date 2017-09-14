@@ -1,5 +1,5 @@
 use bytes::{Bytes, BytesMut};
-use std::io::Error;
+use std::io::{Error, stdin};
 
 #[derive(Deserialize)]
 pub enum SourceType {
@@ -18,8 +18,15 @@ pub struct StdinSource;
 
 impl Source for StdinSource {
     fn next(&mut self) -> Bytes {
-        BytesMut::with_capacity(10).freeze()
+        let mut input_string = String::new();
 
+        if let Ok(_) = stdin().read_line(&mut input_string) {
+            let buffer = BytesMut::from(input_string);
+
+            buffer.freeze()
+        } else {
+            Bytes::new()
+        }
     }
 
     fn has_more(&self) -> bool {

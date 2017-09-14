@@ -19,7 +19,7 @@ impl Default for AgentConfig {
 
 impl<T> From<T> for AgentConfig where T: AsRef<Path> {
 
-    fn from(source: T) -> AgentConfig {
+    fn from(_: T) -> AgentConfig {
         AgentConfig::default()
     }
 

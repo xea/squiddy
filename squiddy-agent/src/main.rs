@@ -10,9 +10,11 @@ use config::AgentConfig;
 use pipeline::Pipeline;
 
 mod config;
+mod event;
 mod filter;
 mod pipeline;
 mod source;
+mod state;
 mod target;
 
 fn main() {

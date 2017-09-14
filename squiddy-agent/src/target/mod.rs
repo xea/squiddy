@@ -1,12 +1,10 @@
 // TODO this module may be in need for a better name to avoid conflicts with cargo's targets
-use squiddy_proto::message::Message;
 use std::io::{Error, ErrorKind};
 use std::net::SocketAddr;
-use self::memory::MemoryTarget;
 use self::nil::NilTarget;
 use self::tls::TlsTarget;
+use super::state::State;
 
-pub mod memory;
 pub mod nil;
 pub mod tls;
 
@@ -17,13 +15,12 @@ pub enum TargetType {
     BinaryFile,
     Tcp(SocketAddr),
     Tls(SocketAddr, String),
-    Memory,
     Stdout,
     BinaryStdout
 }
 
 pub trait Target {
-    fn accept(&mut self, message: Message) -> bool;
+    fn accept(&mut self, state: &State) -> bool;
 }
 
 pub struct TargetBuilder;
@@ -33,7 +30,6 @@ impl TargetBuilder {
     pub fn build(target_type: TargetType) -> Result<Box<Target>, Error> {
         match target_type {
             TargetType::Nil => Ok(Box::new(NilTarget)),
-            TargetType::Memory => Ok(Box::new(MemoryTarget::default())),
             TargetType::Tls(server_address, server_name) => match TlsTarget::connect(server_address, &server_name) {
                 Ok(target) => Ok(Box::new(target)),
                 Err(err) => Err(err)

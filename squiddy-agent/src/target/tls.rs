@@ -7,6 +7,7 @@ use squiddy_proto::message::Message;
 use squiddy_proto::codec::encoder::SquiddyEncoder;
 use tokio_io::codec::Encoder;
 use super::Target;
+use super::super::state::State;
 
 pub struct TlsTarget {
     encoder: SquiddyEncoder,
@@ -26,16 +27,22 @@ impl TlsTarget {
             ).map(|tls_stream| TlsTarget { stream: tls_stream, encoder: SquiddyEncoder })
         )
     }
+
+    fn translate(&mut self, state: &State) -> Option<Message> {
+        None
+    }
 }
 
 impl Target for TlsTarget {
 
-    fn accept(&mut self, message: Message) -> bool {
+    fn accept(&mut self, state: &State) -> bool {
         let mut write_buffer = BytesMut::with_capacity(128);
 
-        self.encoder.encode(message, &mut write_buffer)
-        .and_then(|_| self.stream.write_all(&write_buffer))
-        .map(|_| true)
-        .unwrap_or(false)
+        self.translate(state).map(|message|
+            self.encoder.encode(message, &mut write_buffer)
+            .and_then(|_| self.stream.write_all(&write_buffer))
+            .map(|_| true)
+            .unwrap_or(false)
+        ).unwrap_or(true)
     }
 }
