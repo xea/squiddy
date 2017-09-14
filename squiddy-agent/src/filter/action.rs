@@ -25,7 +25,7 @@ pub struct IncrementCounter {
 impl Action for IncrementCounter {
 
     fn perform(&mut self) -> Option<Vec<Event>> {
-        Some(vec![Event::IncrementCounter(self.i, 1)])
+        Some(vec![Event::IncrementCounter(self.i)])
     }
 
 }

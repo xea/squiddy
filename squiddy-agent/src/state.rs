@@ -7,7 +7,8 @@ pub struct State {
 impl State {
     pub fn accept(&mut self, event: Event) -> () {
         match event {
-            Event::IncrementCounter(idx, diff) => (),
+            Event::IncrementCounter(idx) => self.increment_var(idx, 1),
+            Event::DecrementCounter(idx) => self.decrement_var(idx, 1),
             _ => ()
         }
     }
@@ -22,6 +23,20 @@ impl State {
         self.vars.push(StateVariable::U64(0));
 
         self.vars.len()
+    }
+
+    fn increment_var(&mut self, idx: usize, diff: usize) -> () {
+        match &mut self.vars[idx] {
+            &mut StateVariable::U32(value) => self.vars[idx] = StateVariable::U32(value + diff as u32),
+            &mut StateVariable::U64(value) => self.vars[idx] = StateVariable::U64(value + diff as u64)
+        }
+    }
+
+    fn decrement_var(&mut self, idx: usize, diff: usize) -> () {
+        match &mut self.vars[idx] {
+            &mut StateVariable::U32(value) => self.vars[idx] = StateVariable::U32(value - diff as u32),
+            &mut StateVariable::U64(value) => self.vars[idx] = StateVariable::U64(value - diff as u64)
+        }
     }
 }
 

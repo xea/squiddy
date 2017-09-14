@@ -20,7 +20,7 @@ impl Source for StdinSource {
     fn next(&mut self) -> Bytes {
         let mut input_string = String::new();
 
-        if let Ok(_) = stdin().read_line(&mut input_string) {
+        if stdin().read_line(&mut input_string).is_ok() {
             let buffer = BytesMut::from(input_string);
 
             buffer.freeze()
