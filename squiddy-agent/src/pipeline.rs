@@ -37,7 +37,7 @@ impl Pipeline {
     }
 
     fn compile_program(_: &AgentConfig) -> Result<SquiddyProgram, Error> {
-        Parser::parse(&Tokenizer::tokenize(Bytes::from("")))
+        Parser::parse(&Tokenizer::tokenize(Bytes::from("{")))
         // TODO better error conversion
         .map_err(|_| Error::new(ErrorKind::Other, ""))
         .and_then(|p|

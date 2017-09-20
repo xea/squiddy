@@ -27,8 +27,8 @@ pub struct Parser {
 
 impl Parser {
 
-    pub fn parse(ast: &Vec<Token>) -> Result<Node, ParseError> {
-        if ast.is_empty() {
+    pub fn parse(tokens: &Vec<Token>) -> Result<Node, ParseError> {
+        if tokens.is_empty() {
             Err(ParseError::EmptyInput)
         } else {
             Ok(Node::VariableDefinition { var_name: String::from("global_counter"), var_type: VarType::UnsignedInt })

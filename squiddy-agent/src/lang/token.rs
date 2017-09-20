@@ -58,20 +58,4 @@ pub enum Token {
 mod tests {
 
     use super::*;
-
-    #[test]
-    fn a_single_word_is_tokenised_into_a_word_token() {
-        let input = "hello";
-        let tokenizer = Tokenizer;
-
-        assert_eq!(vec![ Token::Word(String::from("hello")) ], tokenizer.tokenize(Bytes::from(input)));
-    }
-
-    #[test]
-    fn leading_whitespaces_are_recognised_tokens() {
-        let input = "  hello";
-        let tokenizer = Tokenizer;
-
-        assert_eq!(vec![ Token::Whitespace(2) ], tokenizer.tokenize(Bytes::from(input)));
-    }
 }
