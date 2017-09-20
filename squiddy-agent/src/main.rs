@@ -12,6 +12,7 @@ use pipeline::Pipeline;
 mod config;
 mod event;
 mod filter;
+mod lang;
 mod pipeline;
 mod source;
 mod state;
