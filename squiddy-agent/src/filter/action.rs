@@ -8,24 +8,15 @@ pub trait Action {
     fn perform(&mut self) -> Option<Vec<Event>>;
 }
 
-/// An `Action` that just ignores any kind of input, ie. does nothing.
-pub struct IgnoreInput;
-
-impl Action for IgnoreInput {
-    fn perform(&mut self) -> Option<Vec<Event>> {
-        None
-    }
-}
-
 pub struct IncrementCounter {
     pub name: String,
-    pub i: usize
+    pub idx: usize
 }
 
 impl Action for IncrementCounter {
 
     fn perform(&mut self) -> Option<Vec<Event>> {
-        Some(vec![Event::IncrementCounter(self.i, 1)])
+        Some(vec![Event::IncrementCounter(self.idx)])
     }
 
 }

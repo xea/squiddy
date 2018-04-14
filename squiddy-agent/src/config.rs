@@ -12,7 +12,7 @@ impl Default for AgentConfig {
     fn default() -> Self {
         AgentConfig {
             source_type: SourceType::Stdin,
-            target_type: TargetType::Nil
+            target_type: TargetType::DummyTarget
         }
     }
 }

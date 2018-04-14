@@ -28,7 +28,7 @@ impl TlsTarget {
         )
     }
 
-    fn translate(&mut self, state: &State) -> Option<Message> {
+    fn translate(&mut self, _: &State) -> Option<Message> {
         None
     }
 }
