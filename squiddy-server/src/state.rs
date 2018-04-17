@@ -1,9 +1,5 @@
 use super::agent::Agent;
 
-pub enum StateUpdate {
-    NOP
-}
-
 pub struct State {
     pub registered_agents: Vec<Agent>
 }

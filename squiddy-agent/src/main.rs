@@ -1,7 +1,6 @@
 extern crate bytes;
 extern crate native_tls;
 extern crate squiddy_proto;
-extern crate toml;
 #[macro_use]
 extern crate serde_derive;
 extern crate tokio_io;

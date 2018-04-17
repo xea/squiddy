@@ -8,6 +8,12 @@ pub struct ServerConfig {
     pub listen_address: SocketAddr
 }
 
+impl ServerConfig {
+    pub fn from_args() -> ServerConfig {
+        ServerConfig::from(args())
+    }
+}
+
 impl Default for ServerConfig {
     fn default() -> Self {
         let a = DEFAULT_LISTEN_ADDRESS;
