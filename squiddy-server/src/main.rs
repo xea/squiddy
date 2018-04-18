@@ -7,6 +7,7 @@ mod server;
 mod state;
 mod terminal;
 
+use config::ServerConfig;
 use server::Server;
 use state::State;
 use std::sync::{ Arc, RwLock };
@@ -15,16 +16,14 @@ use terminal::Terminal;
 use termion::raw::{ IntoRawMode };
 
 fn main() {
-    let mut stdout = stdout().into_raw_mode().unwrap();
-    let mut state = State::new();
+    let state = State::new();
     let arc = Arc::new(RwLock::new(state));
+    let config = ServerConfig::from_args();
 
-    //let vt = std::thread::spawn(move || {
-    //});
-
+    let mut server = Server::new(&config, arc.clone());
+    let mut stdout = stdout().into_raw_mode().unwrap();
     let mut terminal = Terminal::new(&mut stdout, arc.clone());
-    let mut server = Server::new(arc.clone());
-    server.start();
 
+    server.start();
     terminal.start();
 }

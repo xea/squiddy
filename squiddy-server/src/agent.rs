@@ -6,8 +6,10 @@ use std::net::SocketAddr;
 pub struct Agent {
     /// The unique id of this agent
     pub agent_id: String,
+    /// The remote address of this agent
     pub address: SocketAddr,
     pub app: String,
+    /// The time this agent was registered
     pub registration_time: Instant
 }
 

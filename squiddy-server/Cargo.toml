@@ -5,3 +5,4 @@ authors = ["Alex Pecsi <alex.pecsi@gmail.com>"]
 
 [dependencies]
 termion = "1"
+native-tls = "0.1.5"

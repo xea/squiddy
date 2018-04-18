@@ -7,6 +7,7 @@ use std::thread;
 use std::time::Duration;
 use std::sync::{ Arc, RwLock };
 use super::state::State;
+use agent::Agent;
 
 pub struct Terminal<'o> {
     out: &'o mut Write,
@@ -20,13 +21,14 @@ impl<'o> Terminal<'o> {
     /// an ANSI terminal).
     pub fn new<W: Write>(out: &'o mut W, state: Arc<RwLock<State>>) -> Self {
         Terminal {
-            out: out,
+            out,
+            state,
             current_view: View::AgentList,
-            exit_requested: false,
-            state: state
+            exit_requested: false
         }
     }
 
+    /*
     fn clear(&mut self) {
         write!(self.out, "{}", clear::All).unwrap();
     }
@@ -38,7 +40,7 @@ impl<'o> Terminal<'o> {
     fn draw_frame(&mut self, title: String, width: u16, height: u16, lines: Vec<String>) {
         let top_frame = format!("+{:-^32}+", title);
         write!(self.out, "{}", top_frame);
-    }
+    }*/
 
     /// Release the terminal and assume that it isn't controlled any more by this instance.
     pub fn release(&mut self) {
@@ -55,11 +57,16 @@ impl<'o> Terminal<'o> {
     }
 
     pub fn start(&mut self) {
+        // input isn't a top priority so we want to read keyboard events asynchronously to minimise
+        // the amount of time spent on blocking calls.
         let mut stdin = async_stdin().bytes();
 
+        // print out the initial screen, this may be changed later at the user's request
         self.render_view();
 
         while !self.exit_requested {
+            // we don't want to repaint the whole screen every time (it would be expensive) so we'll
+            // just redraw the parts that may actually change
             self.update_view();
 
             if let Some(Ok(read_byte)) = stdin.next() {
@@ -67,6 +74,9 @@ impl<'o> Terminal<'o> {
             }
 
             self.out.flush().unwrap();
+
+            // a 50ms sleep should be low enough in order to provide a comfortable user experience
+            // and keep a relatively low cpu usage
             thread::sleep(Duration::from_millis(50));
         }
     }
@@ -78,6 +88,8 @@ impl<'o> Terminal<'o> {
         }
     }
 
+    /// `render_view` issues a full repaint of the screen drawing out the selected view based on the
+    /// current state.
     fn render_view(&mut self) {
         match self.current_view {
             View::AgentList => self.render_agent_list()
@@ -86,17 +98,28 @@ impl<'o> Terminal<'o> {
 
     fn update_view(&mut self) {
         if let Ok(state) = self.state.try_read() {
-            write!(self.out, "{}", cursor::Goto(1, 2)).unwrap();
+            let output = match self.current_view {
+                View::AgentList => self.update_agent_list(&state.registered_agents),
+            };
 
-            for agent in &state.registered_agents {
-                write!(self.out, "{} {} {}", agent.agent_id, agent.address, agent.app).unwrap();
-            }
+            write!(self.out, "{}", output);
         }
     }
 
     fn render_agent_list(&mut self) {
         self.initialise_screen();
-        write!(self.out, "{} {} {}", "NAME", "ADDRESS", "APP").unwrap();
+        write!(self.out, "{:32} {:20} {:10}", "NAME", "ADDRESS", "APP").unwrap();
+        self.update_view();
+    }
+
+    fn update_agent_list(&self, agents: &Vec<Agent>) -> String {
+        let mut output = format!("{}", cursor::Goto(1, 2));
+
+        for agent in agents {
+            output += &format!("{:32} {:20} {:10}", agent.agent_id, agent.address, agent.app);
+        }
+
+        output
     }
 
 }
@@ -135,9 +158,11 @@ mod tests {
     fn compare(actions: Vec<fn(&mut Terminal) -> ()>, expected: Vec<u8>) {
         let buf = vec![];
         let mut bw = BufWriter::new(buf);
+        let mut state = State::new();
+        let mut state = Arc::new(RwLock::new(state));
 
         {
-            let mut t = Terminal::new(&mut bw);
+            let mut t = Terminal::new(&mut bw, state.clone());
 
             for a in actions {
                 a(&mut t);
