@@ -16,8 +16,8 @@ pub struct Agent {
 impl Agent {
     pub fn new(address: SocketAddr) -> Self {
         Agent {
+            address,
             agent_id: String::from("new_agent"),
-            address: address,
             app: String::from("test_app"),
             registration_time: Instant::now()
         }

@@ -4,5 +4,7 @@ version = "0.1.0"
 authors = ["Alex Pecsi <alex.pecsi@gmail.com>"]
 
 [dependencies]
-termion = "1"
 native-tls = "0.1.5"
+
+[target.'cfg(unix)'.dependencies]
+termion = "1"
