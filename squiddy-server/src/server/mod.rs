@@ -10,12 +10,14 @@ use tokio::prelude::*;
 use futures::channel::mpsc::{ channel, Sender, Receiver };
 use futures::future;
 use futures::{ IntoFuture, SinkExt };
+use std::thread;
 
 pub struct Server<'c> {
     state: Arc<RwLock<State>>,
     config: &'c ServerConfig
 }
 
+#[derive(Debug)]
 enum Event {
     NOP
 }
@@ -29,6 +31,7 @@ impl Future for SyncTask {
     type Error = ();
 
     fn poll(&mut self) -> Result<Async<()>, ()> {
+        self.tx.try_send(Event::NOP);//.unwrap();
         Err(())
     }
 }
@@ -42,7 +45,7 @@ impl<'c> Server<'c> {
         let addr = "0.0.0.0:7979".parse().unwrap();
         let listener = TcpListener::bind(&addr).unwrap();
 
-        let (tx, rx) = channel(65536);
+        let (tx, mut rx) = channel(65536);
 
         let server = listener.incoming().for_each(move |socket| {
             println!("accepted socket; addr={:?}", socket.peer_addr().unwrap());
@@ -68,7 +71,17 @@ impl<'c> Server<'c> {
             Ok(())
         }).map_err(|err| println!("accept error = {:?}", err));
 
+        let handle = thread::spawn(move || {
+            loop {
+                if let Ok(msg) = rx.try_next() {
+                    println!("Got message: {:?}", msg);
+                }
+            }
+        });
+
         ::tokio::run(server);
+
+        handle.join().unwrap();
 
         if let Ok(mut state) = self.state.write() {
             let agents: &mut Vec<Agent> = &mut (*state).registered_agents;
