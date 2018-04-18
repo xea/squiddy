@@ -190,7 +190,8 @@ pub mod terminal {
     use ::state::State;
 
     pub struct Terminal<'o> {
-        out: &'o mut Write
+        out: &'o mut Write,
+        state: Arc<RwLock<State>>
     }
 
     impl<'o> Terminal<'o> {
@@ -198,14 +199,17 @@ pub mod terminal {
             stdout()
         }
 
-        pub fn new<W: Write>(out: &'o mut W, _state: Arc<RwLock<State>>) -> Self {
+        pub fn new<W: Write>(out: &'o mut W, state: Arc<RwLock<State>>) -> Self {
             Self {
-                out: out
+                out,
+                state
             }
         }
 
         pub fn start(&mut self) {
-            writeln!(self.out, "Terminal started").unwrap();
+            if let Ok(_) = self.state.read() {
+                writeln!(self.out, "Terminal started").unwrap();
+            }
         }
     }
 }
