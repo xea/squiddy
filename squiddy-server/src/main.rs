@@ -1,12 +1,16 @@
 #[cfg(unix)]
 extern crate termion;
+extern crate futures;
+extern crate tokio;
 
 mod agent;
+mod actor;
 mod config;
 mod server;
 mod state;
 mod terminal;
 
+use actor::*;
 use config::ServerConfig;
 use server::Server;
 use state::State;
@@ -14,6 +18,9 @@ use std::sync::{ Arc, RwLock };
 use terminal::terminal::Terminal;
 
 fn main() {
+    let system = ActorSystem::create(String::from("asdfasdf"));
+
+
     let state = State::new();
     let arc = Arc::new(RwLock::new(state));
     let config = ServerConfig::from_args();

@@ -5,6 +5,8 @@ authors = ["Alex Pecsi <alex.pecsi@gmail.com>"]
 
 [dependencies]
 native-tls = "0.1.5"
+futures = "*"
+tokio = "0.1.*"
 
 [target.'cfg(unix)'.dependencies]
 termion = "1"
