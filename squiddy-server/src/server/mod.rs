@@ -42,13 +42,20 @@ impl<'c> Server<'c> {
     }
 
     pub fn start(&mut self) {
-        let addr = "0.0.0.0:7979".parse().unwrap();
+        let addr = SocketAddr::new(self.config.listen_address, self.config.listen_port);
         let listener = TcpListener::bind(&addr).unwrap();
 
         let (tx, mut rx) = channel(65536);
+        let local_state = self.state.clone();
 
         let server = listener.incoming().for_each(move |socket| {
             println!("accepted socket; addr={:?}", socket.peer_addr().unwrap());
+
+            let lsg = local_state.clone();
+
+            if let Ok(mut wr) = lsg.write() {
+                
+            }
 
             let connection = io::write_all(socket, "Hello guy\n")
             .then(|res| {
@@ -71,17 +78,22 @@ impl<'c> Server<'c> {
             Ok(())
         }).map_err(|err| println!("accept error = {:?}", err));
 
+/*
         let handle = thread::spawn(move || {
+            let lsg = sg.clone();
+
             loop {
                 if let Ok(msg) = rx.try_next() {
                     println!("Got message: {:?}", msg);
                 }
             }
         });
+        
+        handle.join().unwrap();
+        */
 
         ::tokio::run(server);
 
-        handle.join().unwrap();
 
         if let Ok(mut state) = self.state.write() {
             let agents: &mut Vec<Agent> = &mut (*state).registered_agents;

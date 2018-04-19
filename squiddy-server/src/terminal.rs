@@ -1,5 +1,5 @@
 #[cfg(unix)]
-mod terminal {
+pub mod terminal {
     use termion::{ clear, /*color,*/ cursor, /*event, input, scroll, style, */
         /*input::TermRead, raw::IntoRawMode,*/
         //AsyncReader,
@@ -8,9 +8,9 @@ mod terminal {
     use std::thread;
     use std::time::Duration;
     use std::sync::{ Arc, RwLock };
-    use super::state::State;
+    use ::state::State;
     use agent::Agent;
-    use termion::raw::{ IntoRawMode };
+    use termion::raw::{ IntoRawMode, RawTerminal };
 
     pub struct Terminal<'o> {
         out: &'o mut Write,
@@ -31,7 +31,7 @@ mod terminal {
             }
         }
 
-        pub fn stdout() -> Stdout {
+        pub fn stdout() -> RawTerminal<Stdout> {
             stdout().into_raw_mode().unwrap()
         }
 
