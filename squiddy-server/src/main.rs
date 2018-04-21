@@ -1,5 +1,6 @@
 #[cfg(unix)]
 extern crate termion;
+extern crate bytes;
 extern crate futures;
 extern crate tokio;
 
@@ -21,10 +22,12 @@ fn main() {
     let config = ServerConfig::from_args();
 
     let mut stdout = Terminal::stdout();
-    let mut server = Server::new(&config, arc.clone());
-//        stdout().into_raw_mode().unwrap()
     let mut terminal = Terminal::new(&mut stdout, arc.clone());
-
+    let mut server = Server::new(&config, arc.clone());
+    
     server.start();
     terminal.start();
+    
+    server.stop();
+    
 }

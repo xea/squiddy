@@ -4,7 +4,7 @@ pub mod terminal {
         /*input::TermRead, raw::IntoRawMode,*/
         //AsyncReader,
         async_stdin };
-    use std::io::{ Read, Result, Stdout, Write, stdout };
+    use std::io::{ Read, Stdout, Write, stdout };
     use std::thread;
     use std::time::Duration;
     use std::sync::{ Arc, RwLock };

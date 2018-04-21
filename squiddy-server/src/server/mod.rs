@@ -1,107 +1,31 @@
-use std::net::{ IpAddr, Ipv4Addr, SocketAddr };
-use super::agent::Agent;
-use super::config::ServerConfig;
-use super::state::*;
-use std::sync::{Arc, RwLock};
-
-use tokio::io;
-use tokio::net::TcpListener;
-use tokio::prelude::*;
-use futures::channel::mpsc::{ channel, Sender, Receiver };
-use futures::future;
-use futures::{ IntoFuture, SinkExt };
-use std::thread;
+use std::sync::{ Arc, RwLock };
+use std::thread::{ JoinHandle, spawn };
+use ::config::ServerConfig;
+use ::state::State;
 
 pub struct Server<'c> {
+    config: &'c ServerConfig,
     state: Arc<RwLock<State>>,
-    config: &'c ServerConfig
-}
-
-#[derive(Debug)]
-enum Event {
-    NOP
-}
-
-pub struct SyncTask {
-    tx: Sender<Event>
-}
-
-impl Future for SyncTask {
-    type Item = ();
-    type Error = ();
-
-    fn poll(&mut self) -> Result<Async<()>, ()> {
-        self.tx.try_send(Event::NOP);//.unwrap();
-        Err(())
-    }
+    detached_thread: Option<JoinHandle<()>>
 }
 
 impl<'c> Server<'c> {
     pub fn new(config: &'c ServerConfig, state: Arc<RwLock<State>>) -> Self {
-        Server { state, config }
+        Self { config, state, detached_thread: None }
     }
 
     pub fn start(&mut self) {
-        let addr = SocketAddr::new(self.config.listen_address, self.config.listen_port);
-        let listener = TcpListener::bind(&addr).unwrap();
+        // For now any start will start the server in detached mode but it's just convenient, not necessary
+        self.start_detached();
+    }
 
-        let (tx, mut rx) = channel(65536);
-        let local_state = self.state.clone();
-
-        let server = listener.incoming().for_each(move |socket| {
-            println!("accepted socket; addr={:?}", socket.peer_addr().unwrap());
-
-            let lsg = local_state.clone();
-
-            if let Ok(mut wr) = lsg.write() {
-                
-            }
-
-            let connection = io::write_all(socket, "Hello guy\n")
-            .then(|res| {
-                println!("Greeting sent, success={:?}", res);
-                Ok(())
-            });
+    pub fn start_detached(&mut self) {
+        self.detached_thread = Some(spawn(move || {
             
-            ::tokio::spawn(connection);
+        }));
+    }
 
-            let task = SyncTask { tx: tx.clone() };
-
-            ::tokio::spawn(task);
-
-            //let sync = future::result(tx.send(Event::NOP)).into_future();
-
-            //let s: String = tx.send(Event::NOP);
-
-            //::tokio::spawn(sync);
-
-            Ok(())
-        }).map_err(|err| println!("accept error = {:?}", err));
-
-/*
-        let handle = thread::spawn(move || {
-            let lsg = sg.clone();
-
-            loop {
-                if let Ok(msg) = rx.try_next() {
-                    println!("Got message: {:?}", msg);
-                }
-            }
-        });
-        
-        handle.join().unwrap();
-        */
-
-        ::tokio::run(server);
-
-
-        if let Ok(mut state) = self.state.write() {
-            let agents: &mut Vec<Agent> = &mut (*state).registered_agents;
-
-            let a = Ipv4Addr::new(127, 0, 0, 1);
-            let b = IpAddr::V4(a);
-            let c = SocketAddr::new(b, 8080);
-            agents.push(Agent::new(c));
-        }
+    pub fn stop(self) {
+        self.detached_thread.map(|thread| thread.join().unwrap());
     }
 }
