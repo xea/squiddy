@@ -1,6 +1,7 @@
 #[cfg(unix)]
 extern crate termion;
 extern crate bytes;
+#[macro_use]
 extern crate futures;
 extern crate tokio;
 
@@ -21,13 +22,14 @@ fn main() {
     let arc = Arc::new(RwLock::new(state));
     let config = ServerConfig::from_args();
 
-    let mut stdout = Terminal::stdout();
-    let mut terminal = Terminal::new(&mut stdout, arc.clone());
-    let mut server = Server::new(&config, arc.clone());
+//    let mut stdout = Terminal::stdout();
+//    let mut terminal = Terminal::new(&mut stdout, arc.clone());
+    let mut server = Server::new(config.clone(), arc.clone());
     
-    server.start();
-    terminal.start();
+    let handle = server.start_detached();
+
+ //   terminal.start();
     
-    server.stop();
+    server.stop(handle);
     
 }

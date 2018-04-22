@@ -4,6 +4,7 @@ use std::net::{ IpAddr, Ipv4Addr };
 const DEFAULT_LISTEN_PORT: u16 = 7979;
 const DEFAULT_LISTEN_ADDRESS: (u8, u8, u8, u8) = (0, 0, 0, 0);
 
+#[derive(Clone)]
 pub struct ServerConfig {
     pub listen_address: IpAddr,
     pub listen_port: u16
