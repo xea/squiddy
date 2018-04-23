@@ -3,7 +3,7 @@ use std::sync::{ Arc, RwLock };
 use std::thread::{ JoinHandle, spawn };
 use ::config::ServerConfig;
 use ::state::State;
-use tokio::prelude::Future;
+use tokio::prelude::{ Async, Future, Stream };
 use tokio::net::{ TcpStream, TcpListener };
 use tokio::io;
 
@@ -58,16 +58,16 @@ impl Server {
 }
 
 enum ClientState {
-    Connecting(TcpStream),
+    NewConnection(TcpStream),
 }
 
 struct AcceptClient {
-    state: ClientState
+    state: ClientState,
 }
 
 impl AcceptClient {
     pub fn new(stream: TcpStream) -> AcceptClient {
-        Self { state: ClientState::Connecting(stream) }
+        Self { state: ClientState::NewConnection(stream) }
     }
 }
 
@@ -76,13 +76,55 @@ impl Future for AcceptClient {
     type Error = io::Error;
 
     fn poll(&mut self) -> Result<Async<Self::Item>, Self::Error> {
-        println!("Polling around");
-
+        /*
         match self.state {
-            ClientState::Connecting(ref mut stream) => {
+            ClientState::NewConnection(ref mut stream) => {
+                let mut a = io::write_all(stream, "HELLO\n")
+                .and_then(|(s, b)| {
+                    let buf = vec![0; 5];
+                    io::read_exact(s, buf)
+                })
+                .and_then(|(s, b)| { io::write_all(s, "ACK\n") })
+                .and_then(|(s, b)| {
+                    let buf = vec![0; 5];
+                    io::read_exact(s, buf)
+                })
+                .and_then(|(s, b)| { io::write_all(s, "KTHXBYE\n") })
+                .map(|_| ());
                 
+                a.poll()
             }
         }
-        Ok(Async::NotReady)
+        */
+
+        match self.state {
+            ClientState::NewConnection(ref mut stream) => {
+                let mut a = io::write_all(stream, "HELLO\n")
+                .and_then(|(s, b)| {
+                    let buf = vec![0; 5];
+                    io::read_exact(s, buf)
+                })
+                .and_then(|(s, b)| { io::write_all(s, "ACK\n") })
+                .and_then(|(s, b)| {
+                    let buf = vec![0; 5];
+                    io::read_exact(s, buf)
+                })
+                .and_then(|(s, b)| { io::write_all(s, "KTHXBYE\n") })
+                .map(|_| ());
+
+                loop {
+                    let v = match a.poll() {
+                        Ok(Async::Ready(t)) => t,
+                        Ok(Async::NotReady) => return Ok(Async::NotReady),
+                        Err(err) => return Err(err)
+                    };
+
+                    println!("Got result: {:?}", v);
+                    break;
+                };
+
+                Ok(Async::Ready(()))
+            }
+        }
     }
 }
