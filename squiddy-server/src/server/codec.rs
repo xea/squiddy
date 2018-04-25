@@ -33,6 +33,24 @@ impl ClientCodec {
             }
         }
     }
+
+    fn read_label(buffer: &mut BytesMut) -> Async<Option<String>> {
+        const LABEL_LEN_SIZE: usize = 1;
+
+        if buffer.len() >= LABEL_LEN_SIZE {
+            let label_len = buffer.split_to(LABEL_LEN_SIZE)[0] as usize;
+
+            if buffer.len() >= label_len {
+                let raw_label = buffer.split_to(label_len);
+
+                Async::Ready(Some(String::from_utf8(raw_label.as_ref().to_vec()).unwrap_or(String::from("[Label error]"))))
+            } else {
+                Async::NotReady
+            }
+        } else {
+            Async::NotReady
+        }
+    }
 }
 
 impl Stream for ClientCodec {
@@ -60,6 +78,7 @@ impl Stream for ClientCodec {
             println!("Message code: #{:?}", msg_code);
 
             let result = match &msg_code[..] {
+                b"la" => ClientCodec::read_label(&mut buffer).map(|label| label.map(|name| ClientMessage::ClientHello { name: name })),
                 b"he" => {
                     if buffer.len() >= STR_LENGTH_SIZE {
                         let msg_size = buffer.split_to(STR_LENGTH_SIZE);
