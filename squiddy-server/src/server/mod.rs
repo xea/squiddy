@@ -1,12 +1,14 @@
 use std::net::SocketAddr;
 use std::sync::{ Arc, RwLock };
 use std::thread::{ JoinHandle, spawn };
-use ::config::ServerConfig;
-use ::state::State;
 use bytes::BytesMut;
+use futures::future;
+use futures::future::Either;
 use tokio::prelude::{ Async, AsyncRead, Future, Poll, Stream };
 use tokio::net::{ TcpStream, TcpListener };
 use tokio::io;
+use ::config::ServerConfig;
+use ::state::State;
 
 #[derive(Clone)]
 pub struct Server {
@@ -28,9 +30,22 @@ impl Server {
 
                 let codec = ClientCodec::new(socket);
 
+                // ---------------------------------
                 let connection = codec.into_future()
-                    .map_err(|_| ())
-                    .map(|_| ());
+                    .map_err(|(e, _)| e)
+                    .and_then(|(first_event, events)| {
+                        println!("First event: {:?}", first_event);
+
+                        match first_event {
+                            None => return Either::A(future::ok(())),
+                            _ => ()
+                        }
+
+                        let client = Client::new(events);
+
+                        Either::B(client)
+                    })
+                    .map_err(|_| ());
 /*
                 let connection = TestFuture::new(socket).then(|_| {
                     println!("Accepted and stuff");
@@ -125,10 +140,40 @@ impl Stream for ClientCodec {
     }
 }
 
+#[derive(Debug)]
 enum ClientMessage {
     Noop
 }
 
+struct Client {
+    codec: ClientCodec
+}
+
+impl Client {
+    pub fn new(codec: ClientCodec) -> Self {
+        Self { codec }
+    }
+}
+
+impl Future for Client {
+    type Item = ();
+    type Error = io::Error;
+
+    fn poll(&mut self) -> Poll<(), io::Error> {
+        while let Async::Ready(event) = self.codec.poll()? {
+            println!("Got some event: {:?}", event);
+
+            if let Some(msg) = event {
+                println!("Processing message: {:?}", msg);
+            } else {
+                println!("No more messages, client has disconnected");
+                return Ok(Async::Ready(()))
+            }
+        }
+
+        Ok(Async::NotReady)
+    }
+}
 /*
 struct TestFuture {
     inner: Box<Future<Item=(), Error=()>>
