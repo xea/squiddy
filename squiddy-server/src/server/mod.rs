@@ -174,32 +174,6 @@ impl Future for Client {
         Ok(Async::NotReady)
     }
 }
-/*
-struct TestFuture {
-    inner: Box<Future<Item=(), Error=()>>
-}
-
-impl TestFuture {
-    pub fn new(stream: TcpStream) -> Self {
-        Self {
-            inner: Box::new(io::write_all(stream, "HELLO\n").map(|_| ()).map_err(|_| ()))
-        }
-    }
-}
-
-impl Future for TestFuture {
-    type Item = ();
-    type Error = ();
-
-    fn poll(&mut self) -> Result<Async<Self::Item>, Self::Error> {
-        let v = try_ready!(self.inner.poll());
-        Ok(Async::Ready(()))
-
-        //try_ready!(self.inner.poll())
-    }
-    
-}
-*/
 
 enum ClientState {
     NewConnection(TcpStream),
@@ -220,26 +194,6 @@ impl Future for AcceptClient {
     type Error = io::Error;
 
     fn poll(&mut self) -> Result<Async<Self::Item>, Self::Error> {
-        /*
-        match self.state {
-            ClientState::NewConnection(ref mut stream) => {
-                let mut a = io::write_all(stream, "HELLO\n")
-                .and_then(|(s, b)| {
-                    let buf = vec![0; 5];
-                    io::read_exact(s, buf)
-                })
-                .and_then(|(s, b)| { io::write_all(s, "ACK\n") })
-                .and_then(|(s, b)| {
-                    let buf = vec![0; 5];
-                    io::read_exact(s, buf)
-                })
-                .and_then(|(s, b)| { io::write_all(s, "KTHXBYE\n") })
-                .map(|_| ());
-                
-                a.poll()
-            }
-        }
-        */
 
         match self.state {
             ClientState::NewConnection(ref mut stream) => {
