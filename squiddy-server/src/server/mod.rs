@@ -1,15 +1,22 @@
 use std::net::SocketAddr;
 use std::sync::{ Arc, RwLock };
 use std::thread::{ JoinHandle, spawn };
-use bytes::BytesMut;
 use futures::future;
 use futures::future::Either;
-use tokio::prelude::{ Async, AsyncRead, Future, Poll, Stream };
-use tokio::net::{ TcpStream, TcpListener };
+use tokio::prelude::{ Async, Future, Poll, Stream };
+use tokio::net::TcpListener;
 use tokio::io;
-use ::config::ServerConfig;
-use ::state::State;
+use super::agent::Agent;
+use super::config::ServerConfig;
+use super::state::State;
+use self::codec::ClientCodec;
 
+mod codec;
+
+/// Instances of `Server` are responsible for creating and maintaining data collection services to which agents can connect and send
+/// updates. It's primary task is to collect and process the incoming update requests and update it's internal shared state, accordingly.
+/// 
+/// `Server` is not responsible for generating any sort of output, it merely updates the shared `state` that other services may read.
 #[derive(Clone)]
 pub struct Server {
     config: ServerConfig,
@@ -17,41 +24,44 @@ pub struct Server {
 }
 
 impl Server {
+    /// Create a new `Server` instance that is ready to start.
     pub fn new(config: ServerConfig, state: Arc<RwLock<State>>) -> Self {
         Self { config, state }
     }
 
+    /// Start the data collection service inline (ie. on the same thread as it was launched on and blocking the current thread until
+    /// termination, which is usually the end of the program)
     pub fn start(&mut self) {
-        let addr = SocketAddr::new(self.config.listen_address, self.config.listen_port);
+        let listen_address = SocketAddr::new(self.config.listen_address, self.config.listen_port);
 
-        if let Ok(listener) = TcpListener::bind(&addr) {
+        if let Ok(listener) = TcpListener::bind(&listen_address) {
             let server = listener.incoming().for_each(move |socket| {
-                println!("New connection: {:?}", socket.peer_addr().unwrap());
+                // Extracting the client address early on as socket itself will be moved into ClientCodec
+                let client_address = socket.peer_addr().unwrap();
 
                 let codec = ClientCodec::new(socket);
 
-                // ---------------------------------
+                // Calling into_future() first ensures that only one message is returned at this time so we're able to
+                // authenticate/authorise the connecting client before accepting other messages
                 let connection = codec.into_future()
+                    // TBH I'm not quite sure why we need this map_err here but it looks like into_future's error type 
+                    // is a tuple and we're expected to pass down a single Error
                     .map_err(|(e, _)| e)
-                    .and_then(|(first_event, events)| {
-                        println!("First event: {:?}", first_event);
+                    .and_then(move |(greeting, messages)| {
+                        let agent_info = match greeting {
+                            // We expect a ClientHello as a first message in which the client identifies itself. 
+                            Some(ClientMessage::ClientHello { name }) => Agent::new(client_address, name),
+                            // If the first event we received from the client wasn't a ClientHello event, then we simply
+                            // drop the connection.
+                            _ => return Either::A(future::ok(())),
+                        };
 
-                        match first_event {
-                            None => return Either::A(future::ok(())),
-                            _ => ()
-                        }
-
-                        let client = Client::new(events);
+                        let client = Client::new(messages);
 
                         Either::B(client)
                     })
+                    // And again, the final pipeline is expected to return () for errors, enforcing proper error handling
                     .map_err(|_| ());
-/*
-                let connection = TestFuture::new(socket).then(|_| {
-                    println!("Accepted and stuff");
-                    Ok(())
-                }).map_err(|_| ());
-                */
 
                 ::tokio::spawn(connection);
 
@@ -60,10 +70,12 @@ impl Server {
 
             ::tokio::run(server);
         } else {
-            println!("Failed to bind to address: {:?}", addr);
+            println!("Failed to bind to address: {:?}", listen_address);
         }
     }
 
+    /// Start data collecting similarly to `start()` but it is performed on a separate thread and as such, it does not block the 
+    /// calling thread. 
     pub fn start_detached(&mut self) -> JoinHandle<()> {
         let mut self_clone = self.clone();
 
@@ -80,69 +92,10 @@ impl Server {
     }
 }
 
-struct ClientCodec {
-    stream: TcpStream,
-    read_buffer: BytesMut,
-    write_buffer: BytesMut
-}
-
-impl ClientCodec {
-    pub fn new(stream: TcpStream) -> Self {
-        Self { 
-            stream,
-            read_buffer: BytesMut::new(),
-            write_buffer: BytesMut::new()
-        }
-    }
-
-    fn read_next_packet(&mut self) -> Poll<(), io::Error> {
-        loop {
-            self.read_buffer.reserve(1024);
-
-            let n = try_ready!(self.stream.read_buf(&mut self.read_buffer));
-
-            println!("Got value from try_ready: {}", n);
-
-            if n == 0 {
-                return Ok(Async::Ready(()))
-            }
-        }
-    }
-}
-
-impl Stream for ClientCodec {
-
-    type Item = ClientMessage;
-    type Error = io::Error;
-
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let sock_closed = self.read_next_packet()?.is_ready();
-
-        println!("- read next {:?} {:?}", sock_closed, self.read_buffer.len());
-
-        if self.read_buffer.len() >= 10 {
-            let msg_code = self.read_buffer.split_to(2);
-
-            match &msg_code[..] {
-                b"he" => println!("Hello request"),
-                _ => println!("Unknown package")
-
-            }
-
-            return Ok(Async::Ready(Some(ClientMessage::Noop)))
-        }
-
-        if sock_closed {
-            Ok(Async::Ready(None))
-        } else {
-            Ok(Async::NotReady)
-        }
-    }
-}
-
 #[derive(Debug)]
-enum ClientMessage {
-    Noop
+pub enum ClientMessage {
+    Noop,
+    ClientHello { name: String }
 }
 
 struct Client {
@@ -175,6 +128,7 @@ impl Future for Client {
     }
 }
 
+/*
 enum ClientState {
     NewConnection(TcpStream),
 }
@@ -226,3 +180,4 @@ impl Future for AcceptClient {
         }
     }
 }
+*/

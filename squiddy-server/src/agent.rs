@@ -14,10 +14,10 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn new(address: SocketAddr) -> Self {
+    pub fn new(address: SocketAddr, agent_id: String) -> Self {
         Agent {
             address,
-            agent_id: String::from("new_agent"),
+            agent_id,
             app: String::from("test_app"),
             registration_time: Instant::now()
         }
