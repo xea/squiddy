@@ -4,6 +4,34 @@ use tokio::prelude::{ Async, AsyncRead, Poll, Stream };
 use tokio::io;
 use super::ClientMessage;
 
+pub struct ClientDecoder;
+
+impl ClientDecoder {
+    pub fn decode_packet(&mut self, mut buffer: BytesMut) -> Option<(usize, ClientMessage)> {
+        const MNEMONIC_SIZE: usize = 2;
+
+        let mut read_bytes: usize = 0;
+
+        if buffer.len() >= MNEMONIC_SIZE {
+            let mnemonic = buffer.split_to(MNEMONIC_SIZE);
+            read_bytes += MNEMONIC_SIZE;
+
+            match &mnemonic[..] {
+                b"he" => (),
+                _ => ()
+            }
+        }  
+
+        None
+    }
+
+}
+
+#[cfg(tests)]
+mod test {
+    use super::ClientDecoder;
+}
+
 pub struct ClientCodec {
     stream: TcpStream,
     read_buffer: BytesMut,
@@ -78,6 +106,7 @@ impl Stream for ClientCodec {
             println!("Message code: #{:?}", msg_code);
 
             let result = match &msg_code[..] {
+                /*
                 b"la" => ClientCodec::read_label(&mut buffer).map(|label| label.map(|name| ClientMessage::ClientHello { name: name })),
                 b"he" => {
                     if buffer.len() >= STR_LENGTH_SIZE {
@@ -101,6 +130,7 @@ impl Stream for ClientCodec {
                         Async::NotReady
                     }
                 },
+                */
                 _ => Async::Ready(None)
             };
 
