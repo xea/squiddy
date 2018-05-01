@@ -8,7 +8,7 @@ use tokio::net::TcpListener;
 use tokio::io;
 use super::agent::Agent;
 use super::config::ServerConfig;
-use super::state::State;
+use super::state::{ State, AgentState };
 use self::codec::ClientCodec;
 
 mod codec;
@@ -35,11 +35,14 @@ impl Server {
         let listen_address = SocketAddr::new(self.config.listen_address, self.config.listen_port);
 
         if let Ok(listener) = TcpListener::bind(&listen_address) {
+            let bind_state = self.state.clone();
             let server = listener.incoming().for_each(move |socket| {
                 // Extracting the client address early on as socket itself will be moved into ClientCodec
                 let client_address = socket.peer_addr().unwrap();
 
                 let codec = ClientCodec::new(socket);
+                
+                let local_state = bind_state.clone();
 
                 // Calling into_future() first ensures that only one message is returned at this time so we're able to
                 // authenticate/authorise the connecting client before accepting other messages
@@ -56,7 +59,18 @@ impl Server {
                             _ => return Either::A(future::ok(())),
                         };
 
-                        let client = Client::new(messages);
+                        let connection_state = local_state.clone();
+                        let mut agent_state = None;
+
+                        if let Ok(mut st) = connection_state.write() {
+                            agent_state = Some(st.register_agent(agent_info));
+                        } else {
+                            println!("ERROR: connection_state couldn't be written :(");
+                        }
+                        
+                        // TODO replace this unwrap() with some more meaningful error handling although it shouldn't
+                        // be necessary unless the lock is poisoned
+                        let client = Client::new(messages, agent_state.unwrap());
 
                         Either::B(client)
                     })
@@ -85,6 +99,10 @@ impl Server {
     }
 
     pub fn stop(self, handle: JoinHandle<()>) {
+        /*if !cfg!(dev) {
+            panic!("Server shutdown not implemented yet. Exiting forcefully.");
+        }*/
+
         match handle.join() {
             Ok(h) => println!("Server stopped {:?}", h),
             Err(err) => println!("Error while joining {:?}", err)
@@ -95,16 +113,18 @@ impl Server {
 #[derive(Debug)]
 pub enum ClientMessage {
     Noop,
-    ClientHello { name: String }
+    ClientHello { name: String },
+    ClientQuit
 }
 
 struct Client {
-    codec: ClientCodec
+    codec: ClientCodec,
+    state: Arc<RwLock<AgentState>>
 }
 
 impl Client {
-    pub fn new(codec: ClientCodec) -> Self {
-        Self { codec }
+    pub fn new(codec: ClientCodec, agent_state: Arc<RwLock<AgentState>>) -> Self {
+        Self { codec, state: agent_state }
     }
 }
 
@@ -114,12 +134,15 @@ impl Future for Client {
 
     fn poll(&mut self) -> Poll<(), io::Error> {
         while let Async::Ready(event) = self.codec.poll()? {
-            println!("Got some event: {:?}", event);
-
             if let Some(msg) = event {
                 println!("Processing message: {:?}", msg);
+
+                match msg {
+                    ClientMessage::ClientQuit => return Ok(Async::Ready(())),
+                    _ => ()
+                }
             } else {
-                println!("No more messages, client has disconnected");
+                // There are no more messages to process, the client has disconnected
                 return Ok(Async::Ready(()))
             }
         }
@@ -129,20 +152,6 @@ impl Future for Client {
 }
 
 /*
-enum ClientState {
-    NewConnection(TcpStream),
-}
-
-struct AcceptClient {
-    state: ClientState,
-}
-
-impl AcceptClient {
-    pub fn new(stream: TcpStream) -> AcceptClient {
-        Self { state: ClientState::NewConnection(stream) }
-    }
-}
-
 impl Future for AcceptClient {
     type Item = ();
     type Error = io::Error;

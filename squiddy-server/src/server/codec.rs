@@ -10,19 +10,64 @@ impl ClientDecoder {
     pub fn decode_packet(&mut self, mut buffer: BytesMut) -> Option<(usize, ClientMessage)> {
         const MNEMONIC_SIZE: usize = 2;
 
-        let mut read_bytes: usize = 0;
-
         if buffer.len() >= MNEMONIC_SIZE {
             let mnemonic = buffer.split_to(MNEMONIC_SIZE);
-            read_bytes += MNEMONIC_SIZE;
 
             match &mnemonic[..] {
-                b"he" => (),
-                _ => ()
+                b"he" => self.decode_client_hello(&mut buffer).map(|(len, msg)| (len + MNEMONIC_SIZE, msg)),
+                _ => None
             }
-        }  
+        } else {
+            None
+        }
+    }
 
-        None
+    fn decode_client_hello(&mut self, buffer: &mut BytesMut) -> Option<(usize, ClientMessage)> {
+        self.decode_label(buffer).map(|(len, label)| (len, ClientMessage::ClientHello { name: label }))
+    }
+
+    /// Attempts to decode the read buffer as a label which is essentially just a size prefixed UTF-8 string.
+    /// The maximum lenght of a label is 255 bytes (which may be shorter due to multi-byte encoding). 
+    fn decode_label(&mut self, buffer: &mut BytesMut) -> Option<(usize, String)> {
+        // Read the expected length of the label
+        self.decode_u8(buffer)
+        // Convert the length from u8 to usize because that's what every length function expects
+        .map(|(read_bytes, label_len)| (read_bytes, label_len as usize))
+        // TODO remove this line once testing is done, this only makes manual testing easier
+        .map(|(read_bytes, label_len)| (read_bytes, label_len - '0' as usize))
+        .and_then(|(read_bytes, label_len)| {
+            if buffer.len() > label_len {
+                String::from_utf8(buffer.split_to(label_len).as_ref().to_vec())
+                    .ok()
+                    .map(|label| (read_bytes + label_len, label))
+            } else {
+                None
+            }
+        })
+    }
+
+    fn decode_u8(&mut self, buffer: &mut BytesMut) -> Option<(usize, u8)> {
+        const CHUNK_SIZE: usize = ::std::mem::size_of::<u8>();
+
+        if buffer.len() >= CHUNK_SIZE {
+            let raw_data = buffer.split_to(CHUNK_SIZE).into_buf().get_u8();
+
+            Some((CHUNK_SIZE, raw_data))
+        } else {
+            None
+        }
+    }
+
+    fn decode_u32(&mut self, mut buffer: BytesMut) -> Option<u32> {
+        const CHUNK_SIZE: usize = ::std::mem::size_of::<u32>();
+
+        if buffer.len() >= CHUNK_SIZE {
+            let raw_data = buffer.split_to(CHUNK_SIZE).into_buf().get_u32::<BigEndian>();
+
+            Some(raw_data)
+        } else {
+            None
+        }
     }
 
 }
@@ -54,29 +99,9 @@ impl ClientCodec {
 
             let n = try_ready!(self.stream.read_buf(&mut self.read_buffer));
 
-            println!("Got value from try_ready: {}", n);
-
             if n == 0 {
                 return Ok(Async::Ready(()))
             }
-        }
-    }
-
-    fn read_label(buffer: &mut BytesMut) -> Async<Option<String>> {
-        const LABEL_LEN_SIZE: usize = 1;
-
-        if buffer.len() >= LABEL_LEN_SIZE {
-            let label_len = buffer.split_to(LABEL_LEN_SIZE)[0] as usize;
-
-            if buffer.len() >= label_len {
-                let raw_label = buffer.split_to(label_len);
-
-                Async::Ready(Some(String::from_utf8(raw_label.as_ref().to_vec()).unwrap_or(String::from("[Label error]"))))
-            } else {
-                Async::NotReady
-            }
-        } else {
-            Async::NotReady
         }
     }
 }
@@ -89,59 +114,14 @@ impl Stream for ClientCodec {
     /// For each invocation of `poll` we try to read and retrieve a `ClientMessage`. 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         let sock_closed = self.read_next_packet()?.is_ready();
-        let mut read_bytes: usize = 0;
 
-        println!("Read buffer: {:?}", self.read_buffer);
+        let mut decoder = ClientDecoder;
 
-        const MSG_MNEMONIC_SIZE: usize = 2;
-        const STR_LENGTH_SIZE: usize = 1;
-
-        let mut buffer = self.read_buffer.clone();
-
-        if buffer.len() >= MSG_MNEMONIC_SIZE {
-            let msg_code = buffer.split_to(MSG_MNEMONIC_SIZE);
-
-            read_bytes += MSG_MNEMONIC_SIZE;
-
-            println!("Message code: #{:?}", msg_code);
-
-            let result = match &msg_code[..] {
-                /*
-                b"la" => ClientCodec::read_label(&mut buffer).map(|label| label.map(|name| ClientMessage::ClientHello { name: name })),
-                b"he" => {
-                    if buffer.len() >= STR_LENGTH_SIZE {
-                        let msg_size = buffer.split_to(STR_LENGTH_SIZE);
-                        read_bytes += STR_LENGTH_SIZE;
-
-                        println!("Message size: {}", msg_size[0]);
-                        let offset = msg_size[0] as usize - '0' as usize;
-
-                        if buffer.len() >= offset {
-                            let raw_name = buffer.split_to(offset);
-                            read_bytes += offset;
-
-                            println!("Found name: {:?}", raw_name);
-
-                            Async::Ready(Some(ClientMessage::ClientHello { name: String::from_utf8(raw_name.as_ref().to_vec()).unwrap_or(String::from("Name error"))  }))
-                        } else {
-                            Async::NotReady
-                        }
-                    } else {
-                        Async::NotReady
-                    }
-                },
-                */
-                _ => Async::Ready(None)
-            };
-
-            match result {
-                Async::Ready(_) => { self.read_buffer.split_to(read_bytes); },
-                _ => ()
-            }
-
-            println!("Inner result: {:?}", result);
-
-            return Ok(result)
+        if let Some((len, packet)) = decoder.decode_packet(self.read_buffer.clone()) {
+            // Decoding itself was done on a clone of the read buffer so we need to update the current
+            // instance too, indicating that the reading a whole message has completed.
+            let _ = self.read_buffer.split_to(len);
+            return Ok(Async::Ready(Some(packet)))
         }
 
         if sock_closed {

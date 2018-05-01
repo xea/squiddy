@@ -124,7 +124,7 @@ pub mod terminal {
             let mut output = format!("{}", cursor::Goto(1, 2));
 
             for agent in agents {
-                output += &format!("{:32} {:20} {:10}", agent.agent_id, agent.address, agent.app);
+                output += &format!("{:32} {:20} {:10}{}{}", agent.agent_id, agent.address, agent.app, cursor::Left(100), cursor::Down(1));
             }
 
             output
